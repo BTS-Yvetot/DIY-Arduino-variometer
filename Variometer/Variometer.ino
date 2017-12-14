@@ -35,7 +35,7 @@ uint8_t date_minute;
 #define Enter 12
 #define ENCODER_STEP 4
 
-Encoder knob(3, 2);
+Encoder knob(2, 3);
 long knobPosition = 0;
 int lastEnterState = HIGH;
 /////////////////////////////////////////
@@ -62,6 +62,7 @@ bool stat_blink_status = false;
 #define MENU_RECRESET 21
 
 //this controls the menu backend and the event generation
+
 MenuBackend menu = MenuBackend(menuUseEvent, menuChangeEvent);
 
 MenuItem m_vario = MenuItem(NULL, MENU_VARIO); //Vario
@@ -111,7 +112,6 @@ unsigned long get_timeBeep = millis();
 uint8_t beepLatency = 0;
 
 bool is_vario_button_push = false;
-uint16_t average_vcc = 0;             //variable to hold the value of Vcc from battery
 float average_pressure;
 unsigned long get_time1 = millis();
 
@@ -272,31 +272,21 @@ void renderVario()
     display.print(F(" "));
     renderChrono();
 
-    if (now.second() % 2 == 0) {
-      //Battery level
-      uint8_t vccPixels = getVccPixels();
-      uint8_t bat_x = 72;
-      uint8_t bat_y = 9;
-      display.drawRect(bat_x + 2, bat_y, 10, 6, BLACK);
-      display.fillRect(bat_x, bat_y + 2, 2, 2, BLACK);
-      display.fillRect(bat_x + 3 + 8 - vccPixels, bat_y + 1, vccPixels, 4, BLACK);
-    }
-    else {
-      // set up my_temperature
-      display.setCursor(62, 9);
-      bmp085.getTemperature(&my_temperature);
-      display.print((int)my_temperature);
-      display.drawPixel(75, 9, BLACK);
-      display.drawPixel(76, 9, BLACK);
-      display.drawPixel(74, 10, BLACK);
-      display.drawPixel(74, 11, BLACK);
-      display.drawPixel(75, 12, BLACK);
-      display.drawPixel(76, 12, BLACK);
-      display.drawPixel(77, 10, BLACK);
-      display.drawPixel(77, 11, BLACK);
-      display.setCursor(79, 9);
-      display.print(F("C"));
-    }
+    // set up my_temperature
+    display.setCursor(62, 9);
+    bmp085.getTemperature(&my_temperature);
+    display.print((int)my_temperature);
+    display.drawPixel(75, 9, BLACK);
+    display.drawPixel(76, 9, BLACK);
+    display.drawPixel(74, 10, BLACK);
+    display.drawPixel(74, 11, BLACK);
+    display.drawPixel(75, 12, BLACK);
+    display.drawPixel(76, 12, BLACK);
+    display.drawPixel(77, 10, BLACK);
+    display.drawPixel(77, 11, BLACK);
+    display.setCursor(79, 9);
+    display.print(F("C"));
+
 
     //Vario
     display.setTextColor(WHITE, BLACK);
@@ -386,7 +376,7 @@ void renderDateTime(DateTime d, uint8_t bold = 0)
     display.setTextColor(WHITE, BLACK);
   renderZero(d.day());
   display.print(d.day());
-  
+
   display.setTextColor(BLACK);
   display.print(F("/"));
 
@@ -661,16 +651,16 @@ void renderMenu(MenuItem newMenuItem = menu.getCurrent(), uint8_t dir = 2)
           }
           else {
 
-            if (!stat_blink_status) {                          
+            if (!stat_blink_status) {
               display.setTextColor(BLACK);
               renderDateTime(DateTime(stat_to_display.chrono_start));
             }
             else {
               display.print(F("M"));
-              display.print(stat_displayed);              
+              display.print(stat_displayed);
               display.setTextColor(BLACK);
             }
-            
+
             stat_blink_status = !stat_blink_status;
             display.println();
 
@@ -801,25 +791,9 @@ void menuChangeEvent(MenuChangeEvent changed)
 */
 void updateBrightness()
 {
-  analogWrite(PIN_LIGHT, conf.light_cpt * 51);
+  analogWrite(PIN_LIGHT, (5-conf.light_cpt) * 51); //correction pour le retroeclairage (off => min, 5 => max)
 }
 
-
-uint8_t getVccPixels()
-{
-  uint16_t real_bat = (int)(4.89 * analogRead(A0));
-  //Serial.println(analogRead(A0));
-  //Serial.println(real_bat);
-  average_vcc = (average_vcc == 0) ? real_bat : (int)(average_vcc * 0.94 + real_bat * 0.06);
-
-  uint8_t pixels = map(average_vcc, 3100, 4100, 0, 8);
-  if (pixels > 8)
-    pixels = 8;
-  else if (pixels < 1)
-    pixels = 1;
-
-  return pixels;
-}
 
 
 uint8_t getBeepLatency(float variation)
@@ -939,12 +913,12 @@ void loop()
 {
   readButtons();
   updateAltitude();
-  
+
   float tempo = micros();
-  
+
   /* TEST BLOC */
-  //Altitude = alt + 0.05;  
-  
+  //Altitude = alt + 0.05;
+
   // put it in smooth filter and take average
   vario = vario * 0.8 + (200000 * ((Altitude - alt) / (tempo - tim)));
 
@@ -983,11 +957,11 @@ void loop()
   if (millis() >= (get_time1 + 1000))
   {
     resetTimer(get_time1);
-    
+
     if (menu.getCurrent().getShortkey() == MENU_STAT) {
       menu.use();
     }
-    
+
     // proceedings of the dynamic display of vario
     renderVario();
 
